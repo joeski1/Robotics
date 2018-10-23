@@ -1,0 +1,30 @@
+#!/bin/bash
+
+ROS_DIR="/opt/ros/indigo/bin"
+export ROS_DIR
+
+function exec_job {
+    if [ "${CLI:-0}" -eq "1" ];then
+        bash -c "$1" &> /dev/null &
+    else
+        gnome-terminal -e "$1"
+    fi
+}
+
+if pgrep -c -f 'p2os_teleop_joy.launch' > /dev/null; then
+    echo "joystick control already running"
+else
+    echo "starting joystick control"
+    exec_job "./joystick-control"
+    sleep 3s
+fi
+
+if pgrep -c -f 'rviz' > /dev/null; then
+    echo "rviz already running"
+else
+    echo "starting rviz"
+    exec_job "$ROS_DIR/rosrun rviz rviz -d src/tools/docker/stage.rviz"
+    sleep 3s
+fi
+./syncd
+

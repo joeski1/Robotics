@@ -1,0 +1,90 @@
+#!/bin/bash
+
+# given a directory structure like this:
+# ./
+#  |-- workspace (git repo)
+#  |-- sync      (sync repo)
+#  |-- svn       (svn repo)
+#
+# write a script called "commit_to_svn" in ./
+#  #!/bin/bash
+#  cd workspace/tools
+#  ./commit_to_svn "../../svn"
+
+
+# clone the svn repo to the given location with
+# svn checkout --username=abc123 https://codex.cs.bham.ac.uk/svn/int-robot/leonard/ .
+
+echo "this script is not safe to use anymore"
+exit 1
+
+SVN_REPO="$1"
+
+function echo_header {
+    echo -e "\e[92m> $@\e[39m"
+}
+
+if [ -z "$SVN_REPO" ]; then
+    echo "you must specify the location of the svn repo!"
+    echo "eg ./commit_to_svn \"../../svn_repo\""
+fi
+
+if [ ! -d "$SVN_REPO" ]; then
+    echo "the svn repo \"$SVN_REPO\" does not exist"
+    mkdir -p "$SVN_REPO"
+    cd "$SVN_REPO"
+    read -p "enter your CS username: " user
+    svn checkout --username="$user" https://codex.cs.bham.ac.uk/svn/int-robot/leonard/ .
+    cd "../"
+fi
+
+echo_header "discarding any changes made inside the svn repo"
+
+pushd "$SVN_REPO" > /dev/null
+    # discard all outstanding changes
+    svn revert --recursive .
+    # get other's changes
+    svn update
+popd > /dev/null
+
+echo_header "syncing the git repo with the svn repo"
+
+# don't copy .git from the workspace and don't delete the .svn in the sync repo
+# -a: archive, preserve as much information (eg metadata) as possible
+# -a => -rlptgoD
+# recursive, copy symlinks, preserve permissions, preserve times, preserve
+# group, preserve owner, copy special files and device files
+rsync -a --exclude '.git' \
+    --exclude '*.bak' --exclude '*~' --exclude '*.swp' \
+    --delete \
+    --exclude '.svn' \
+    "../" "$SVN_REPO/"
+
+cd "$SVN_REPO"
+
+echo_header "adding all new files"
+
+# need to force in order to be quiet about files which are already under version control
+svn add . --force
+
+echo_header "removing all missing files"
+
+# need to svn rm all the files that are now missing
+# grep for lines beginning ! (deleted/missing)
+# cut from byte 9 to the end to get rid of the '!        ' before each path
+# use sed to place " at the beginning and end of the paths
+# use xargs to execute svn rm ABC for every missing file
+svn st | grep ^! | cut -b 9- | sed 's/^/"/; s/$/"/' | xargs --no-run-if-empty svn rm
+
+echo
+echo
+echo_header "final status:"
+svn st
+
+echo
+read -p "Commit? [Y/N]: " choice
+case "$choice" in
+    y|Y ) svn commit;; # commit and upload
+    *   ) echo "not committing...";;
+esac
+

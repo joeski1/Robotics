@@ -1,0 +1,19 @@
+#!/bin/bash
+
+catkin_make
+if [ $? -ne 0 ];then
+    exit 1
+fi
+
+pkill stageros
+
+./run_stage
+echo "waiting for stage to start"
+sleep 1
+
+xterm -hold -e "./run_slam" &
+echo "waiting for SLAM to start"
+sleep 3
+
+rosrun exercise3 tour.py
+

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# execute this directly on the robot
+xterm -e "rosrun exercise3 slow_joystick.py" &
+roslaunch socspioneer p2os_teleop_joy.launch

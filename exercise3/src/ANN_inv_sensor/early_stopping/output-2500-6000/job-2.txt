@@ -1,0 +1,24 @@
+{
+  "all_fold_errors": [
+    [
+      372.6933195377864,
+      362.433394175331,
+      358.24587579818893,
+      326.06552384234794,
+      335.18014937771545,
+      335.08193468812397,
+      404.794745160068,
+      369.6878127139784
+    ]
+  ],
+  "caused_shutdown": false,
+  "epochs": 3000,
+  "error": 358.0228444116925,
+  "finish_time": 33933.847123622894,
+  "finish_time_str": "9h25",
+  "num": 2,
+  "prevented_shutdown": false,
+  "this_job_time": 33933.79827928543,
+  "this_job_time_str": "9h25",
+  "triggered_shutdown": false
+}

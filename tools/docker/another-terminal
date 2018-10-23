@@ -1,0 +1,4 @@
+#!/bin/bash
+
+docker exec -it ros /ros_entrypoint.sh bash \
+    -c 'export ROSPATH=${ROSPATH}:/workspace/src; cd /workspace; bash'

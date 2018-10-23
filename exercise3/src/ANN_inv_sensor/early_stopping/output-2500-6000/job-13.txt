@@ -1,0 +1,7 @@
+{
+  "all_fold_errors": [
+    []
+  ],
+  "epochs": 5750,
+  "num": 13
+}

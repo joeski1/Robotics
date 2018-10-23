@@ -1,0 +1,4 @@
+Current Run: EPOCHS = 2000 ETA = 0.1 DROPOUT RATE = 0.8. K Fold Error is 519.446318134
+Current Run: EPOCHS = 2000 ETA = 0.1 DROPOUT RATE = 0.7. K Fold Error is 393.041209487
+Current Run: EPOCHS = 2000 ETA = 0.1 DROPOUT RATE = 0.6. K Fold Error is 556.790328323
+Current Run: EPOCHS = 2000 ETA = 0.1 DROPOUT RATE = 0.5. K Fold Error is 587.406091137

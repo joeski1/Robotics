@@ -1,0 +1,219 @@
+#!/bin/bash
+
+# sync repository:
+# git clone https://git.cs.bham.ac.uk/mxb423/robotics-sync.git .
+
+# TODO: ping google to check if the internet is connected
+
+WORKSPACE="./src"
+export WORKSPACE
+
+ROS_DIR="/opt/ros/indigo/bin"
+export ROS_DIR
+
+# where inside WORKSPACE to store the data files like which module to run
+ARGS_DIR="sync_data"
+export ARGS_DIR
+
+CLI="0"
+export CLI
+
+
+if [ ! -d "$WORKSPACE" ]; then
+    echo "the workspace directory \"$WORKSPACE\" does not exist"
+    exit 1
+fi
+
+function exec_job {
+    if [ "${CLI:-0}" -eq "1" ];then
+        bash -c "$1" &> /dev/null &
+    else
+        gnome-terminal -e "$1"
+    fi
+}
+
+function close_laser {
+    # Disabled because we use joystick now
+    # echo "Closing Laser"
+    # pkill -f "p2os_laser.launch"
+    # pkill -f "p2os_driver"
+    # echo "Waiting for the laser to close..."
+    # sleep 5
+    sleep 1
+}
+
+# executed after the program is killed or closes
+function post_run {
+
+    echo "Program Finished"
+
+    CLOSE_LASER_AFTER_RUN="$(cat "$ARGS_DIR/close_laser_after_run")"
+
+    if [ "$CLOSE_LASER_AFTER_RUN" -eq "1" ]; then
+        close_laser
+    fi
+
+    echo "Waiting for another program ('r' to re-run, 'q' to quit)"
+}
+
+function command_exists {
+    # describe a command, non-zero return if doesn't exist
+    type "$1" &> /dev/null
+}
+
+# compile the workspace, start roscore and lasers if not already running
+# then rosrun the specified package and module
+function run_program {
+
+    # collect variables from files
+    PACKAGE="$(cat "$ARGS_DIR/run_package")"
+    MODULE="$(cat "$ARGS_DIR/run_module")"
+    PDB="$(cat "$ARGS_DIR/pdb")"
+
+
+    if ! command_exists catkin_make || \
+       ! command_exists roscore || \
+       ! command_exists roslaunch || \
+       ! command_exists rosrun; then
+        echo "cannot run as one of the following is missing:"
+        echo "catkin_make, roscore, roslaunch, rosrun"
+        post_run
+        return 1
+    fi
+
+    echo "Compiling..."
+    cd "../"
+    catkin_make
+
+    if [ "$?" -ne "0" ];then
+        echo "Compilation failed"
+        exit 1
+    fi
+    cd "$WORKSPACE"
+
+
+    if pgrep -c -f 'roscore|rosmaster' > /dev/null; then
+        echo "roscore is running"
+    else
+        echo "roscore is NOT running: starting..."
+        exec_job "$ROS_DIR/roscore"
+        echo "waiting for roscore to initialise"
+        sleep 3s
+    fi
+
+    if [[ $MODULE == *".launch"* ]];then
+        echo "Launching $PACKAGE::$MODULE"
+
+        roslaunch "$PACKAGE" "$MODULE"
+
+    else
+        if pgrep -c -f 'p2os_laser.launch|p2os_driver' > /dev/null; then
+            echo "p2os_driver is running"
+        else
+            echo "laser is NOT running: starting..."
+            exec_job "$ROS_DIR/roslaunch socspioneer p2os_laser.launch"
+            echo "waiting for laser to initialise"
+            sleep 1s
+        fi
+
+        if pgrep -c -f 'map_server' > /dev/null; then
+            echo "map_server is running"
+        else
+            echo "map_server is NOT running: starting..."
+            exec_job "$ROS_DIR/rosrun map_server map_server exercise2/map/lgfloor.yaml"
+            echo "waiting for map_server to initialise"
+        fi
+
+        if [ "$PDB" -eq "1" ];then
+            echo "Running $PACKAGE::$MODULE under pdb"
+
+            rosrun --prefix "python -m pdb" "$PACKAGE" "$MODULE"
+        else
+            echo "Running $PACKAGE::$MODULE"
+
+            rosrun "$PACKAGE" "$MODULE"
+        fi
+    fi
+
+    post_run
+}
+
+# run the specified package and module again using the code in the current
+# working directory (potentially with modifications)
+function re_run {
+    PACKAGE="$(cat "$ARGS_DIR/run_package")"
+    MODULE="$(cat "$ARGS_DIR/run_module")"
+    echo "re-running $PACKAGE::$MODULE version marked: $(cat "$ARGS_DIR/date_stamp")"
+
+    run_program
+}
+
+function check_shebang {
+    FILE="$1"
+    export FILE
+    if [[ ! "$(head -n 1 "$FILE")" == *"#!"* ]]; then
+        echo "does not have shebang $FILE"
+    fi
+}
+
+export -f check_shebang
+
+
+if [ "$1" == "cli" ]; then
+    CLI="1"
+fi
+
+cd "$WORKSPACE"
+
+echo "waiting for a program to run ('r' to re-run, 'q' to quit)"
+
+while true; do
+
+    # get changes from remote but don't change working directory
+    git fetch origin > /dev/null 2>&1
+    # count number of commits between HEAD and the head of master
+    OUTSTANDING="$(git rev-list HEAD..origin/master --count)"
+
+    if [ "$OUTSTANDING" -ne "0" ]; then # need to pull
+        git add --all
+        # discard all local changes
+        git reset --hard origin/master > /dev/null
+        # get new version
+        git pull > /dev/null
+
+        # set all python in the workspace as executable
+        find . -type f -name "*.py" -exec chmod +x {} \;
+        find . -type f -name "*.so" -exec chmod +x {} \;
+        CHECK=$(find . -type f -name "*.py" -exec bash -c 'check_shebang "$0"' {} \;)
+
+        if [ ! -z "$CHECK" ]; then
+            echo "some of the .py files do not have shebangs!!! Exiting... "
+            echo "$CHECK"
+            exit 1
+            # TODO: dont exit here
+        fi
+
+        echo "received new version marked: $(cat "$ARGS_DIR/date_stamp")"
+
+        run_program
+    else
+        # -n 1: 1 character
+        # -t: timeout
+        read -n 1 -t 0.2 response
+        if [ "$response" == "r" ];then
+            echo
+            re_run
+        elif [ "$response" == "q" ];then
+            echo
+            CLOSE_LASER_AFTER_RUN="$(cat "$ARGS_DIR/close_laser_after_run")"
+
+            if [ "$CLOSE_LASER_AFTER_RUN" -eq "1" ]; then
+                close_laser
+            fi
+
+            echo "closing..."
+            exit 0
+        fi
+    fi
+
+done

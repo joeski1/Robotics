@@ -1,0 +1,10 @@
+{
+    "caused_shutdown": false,
+    "epochs": 2,
+    "error": 328.5341042580161,
+    "finish_time": 51.22132658958435,
+    "num": 1,
+    "prevented_shutdown": false,
+    "this_job_time": 51.17707586288452,
+    "triggered_shutdown": false
+}

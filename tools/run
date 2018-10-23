@@ -1,0 +1,104 @@
+#!/bin/bash
+
+# sync the workspace with the sync repository and upload to a remote server
+# which the robot polls waiting for new code
+#
+# future improvements:
+# - remove write permissions for all files in sync directory, add back only
+#   while updating
+# - use branches so we don't interfere when using our own simulators
+
+WORKSPACE="./workspace"
+SYNC_REPO="./sync"
+
+# where in the sync repo to store the arguments files
+ARGS_DIR="sync_data"
+
+
+function command_exists {
+    # describe a command, non-zero return if doesn't exist
+    type "$1" &> /dev/null
+}
+
+if ! command_exists "rsync";then
+    echo "rsync not found!"
+    exit 1
+fi
+
+if [ ! -d "$WORKSPACE" ];then
+    echo "workspace \"$WORKSPACE\" does not exist"
+    exit 1
+fi
+
+if [ ! -d "$SYNC_REPO" ];then
+    echo "the sync directory \"$SYNC_REPO\" does not exist."
+    read -p "Would you like to create it? [Y/N]" response
+    case $response in
+        [Yy]* )
+            git clone https://git.cs.bham.ac.uk/mxb423/robotics-sync.git "$SYNC_REPO/"
+            ;;
+        [Nn]* ) exit;;
+        * ) echo "Please answer yes or no.";;
+    esac
+fi
+
+# $# == 0 if no arguments passed
+if [ "$#" -ge "2" ]; then
+    PACKAGE="$1"
+    MODULE="$2"
+    CLOSE_AFTER_RUN="$3"
+    PDB="$4"
+
+    echo "Running $PACKAGE::$MODULE"
+else
+    echo "not enough arguments passed"
+    echo "usage: ./run <package> <module>.py [close_after_run, pdb]"
+    exit 1
+fi
+
+cd "$SYNC_REPO"
+git add --all
+# reset staged changes which now includes all changes, staged or not
+git reset --hard HEAD > /dev/null 2>&1
+git pull > /dev/null 2>&1
+cd "../"
+
+# don't copy .git from the workspace and don't delete the .git in the sync repo
+# -a: archive, preserve as much information (eg metadata) as possible
+# -a => -rlptgoD
+# recursive, copy symlinks, preserve permissions, preserve times, preserve
+# group, preserve owner, copy special files and device files
+rsync -a --exclude '.git' --exclude '.svn' --exclude 'reports/' \
+    --exclude '*.bak' --exclude '*~' --exclude '*.swp' \
+    --delete \
+    --exclude '.git' \
+    "$WORKSPACE/" "$SYNC_REPO/"
+
+cd "$SYNC_REPO"
+
+# setup arguments files
+mkdir -p "$ARGS_DIR"
+pushd "$ARGS_DIR" > /dev/null
+    date                          > "date_stamp"
+    echo "$USER"                  > "user"
+    echo "$PACKAGE"               > "run_package"
+    echo "$MODULE"                > "run_module"
+    echo "${CLOSE_AFTER_RUN:-0}"  > "close_laser_after_run"
+    echo "${PDB:-0}"              > "pdb"
+popd > /dev/null
+
+echo "Uploading"
+# automatically replace \r\n with \n for Windows
+git config core.autocrlf
+
+git add --all > /dev/null 2>&1 && \
+    git commit -m "sync" > /dev/null 2>&1 && \
+    git push -f origin master > /dev/null 2>&1
+
+
+if [ "$?" -eq "0" ];then
+    echo -e "\e[32mRunning\e[0m"
+else
+    echo -e "\e[31mUPLOAD FAILED\e[0m"
+    exit 1
+fi

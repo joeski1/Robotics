@@ -1,0 +1,44 @@
+<launch>
+    <!--
+
+        information from: https://cse.sc.edu/~jokane/agitr/agitr-small-launch.pdf
+
+        debugging:
+            xterm -e is optional
+            xterm -hold -e to stay open afterwards
+            launch-prefix="xterm -e python -m pdb"
+            launch-prefix="xterm -e gdb ~~args"
+            launch-prefix="valgrind ~~log-file=/workspace/val ~~leak-check=full ~~show-leak-kinds=all"
+
+        pkg="a" type="b"  => rosrun a b
+
+        name overwrites what ros::init defines as the name
+
+        output="screen"
+        for a single node to view its stdout, otherwise sent to
+        ~/.ros/log/run_id/node_name-stdout.log
+
+        roslaunch ~~screen package launch_file.launch
+        will display stdout from all nodes (cannot write double-hyphen in XML)
+
+        respawn="true" will restart if it closes
+        required="true" will close all the nodes if it closes
+    -->
+
+    <node pkg="exercise3" type="SLAM" name="SLAM"
+          required="true" output="screen" launch-prefix="xterm -hold -e" />
+
+    <node pkg="exercise3" type="explore.py" name="explore"
+          required="true" output="screen" launch-prefix="xterm -hold -e" />
+
+    <node pkg="exercise3" type="local_map_viewer.py" name="local_map_viewer" />
+    <node pkg="exercise3" type="global_map_viewer.py" name="global_map_viewer" />
+    <node pkg="exercise3" type="point_cloud_viewer.py" name="point_cloud_viewer"
+          output="screen" launch-prefix="xterm -hold -e"/>
+
+    <!--node pkg="exercise3" type="noisy_odom.py" name="noisy_odom" /-->
+    <node pkg="exercise3" type="slow_joystick.py" name="slow_joystick"/>
+
+    <!--node pkg="exercise3" type="face_publisher.py" name="face_publisher"
+        output="screen" launch-prefix="xterm -hold -e"/-->
+</launch>

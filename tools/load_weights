@@ -1,0 +1,28 @@
+#!/bin/bash
+
+#default_dir="/workspace/src/exercise3/src/inv_sensor/early_stopping/output_weights"
+#default_dir="/workspace/src/exercise3/src/inv_sensor/early_stopping/output_weights/hidden_50"
+default_dir="/workspace/src/exercise3/src/inv_sensor/early_stopping/output_weights/hidden_100"
+
+if [ $# -eq 2 ]; then
+    weights_dir="$1"
+    weights_num="$2"
+elif [ $# -eq 1 ];then
+    weights_dir="$default_dir"
+    weights_num="$1"
+else
+    weights_dir="$default_dir"
+    weights_num="$(cat /tmp/weights_num)"
+    weights_num=$(($weights_num + 100))
+fi
+
+hidden_filename="/tmp/in_hidden.csv"
+output_filename="/tmp/hidden_out.csv"
+
+cp "$weights_dir/in_hidden_weights_$weights_num.csv" "$hidden_filename"
+cp "$weights_dir/hidden_out_weights_$weights_num.csv" "$output_filename"
+echo "$weights_num" > "/tmp/weights_num"
+
+echo "loaded $weights_num epoch weights"
+echo "from $weights_dir"
+

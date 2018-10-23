@@ -1,0 +1,11 @@
+*.bak
+*~
+*.swp
+*.pyc
+
+.texpadtmp/
+build/
+
+exercise*.pdf
+
+./CMakeLists.txt

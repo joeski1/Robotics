@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# on the VM:
+# wget https://git.cs.bham.ac.uk/mxb423/robotics-sync/raw/master/tools/VM_bootstrap
+# chmod +x VM_bootstrap
+# ./VM_bootstrap
+
+echo "ONLY RUN THIS IN A CLEAN VM!"
+
+read -p "Continue? [Y/n] " ans
+case "$ans" in
+  n|N ) exit;;
+esac
+
+# from Nishan's instructions
+if [ -d "$HOME/workspace" ];then
+    echo "~/workspace already exists!"
+    exit 1
+fi
+
+echo "creating ROS workspace"
+
+mkdir -p "$HOME/workspace"
+mkdir -p "$HOME/workspace/src"
+cd "$HOME/workspace/src"
+catkin_init_workspace
+cd "../"
+catkin_make
+
+cp "$HOME/.bashrc" "$HOME/.bashrc.bak"
+echo 'source ~/<nameofworkspace>/devel/setup.bash'  >> "$HOME/.bashrc"
+echo 'export ROS_PACKAGE_PATH=/data/private/robot/' >> "$HOME/.bashrc"
+echo "$HOME"'/workspace/src:${ROS_PACKAGE_PATH}'    >> "$HOME/.bashrc"
+
+source "$HOME/.bashrc"
+
+echo "cloning sync repo"
+
+cd "$HOME/workspace/src"
+mv CMakeLists.txt "../CMAKE.bak"
+git clone https://git.cs.bham.ac.uk/mxb423/robotics-sync.git .
+rm -f CMakeLists.txt
+mv "../CMAKE.bak" CMakeLists.txt
+
+ln -s "$HOME/workspace/src/tools/syncd" "$HOME/workspace/syncd"
+

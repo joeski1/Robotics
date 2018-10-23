@@ -1,0 +1,66 @@
+#!/bin/bash
+# Builds ros project in a docker container.
+
+# HOW TO USE
+# ===========
+# Create a symlink outside svn repo (next to workspace)
+# i.e. ln workspace/tools/run-docker
+
+
+function build_image_easy {
+  echo "Building the image from docker file"
+  docker build -t rosimage workspace/tools/docker
+}
+
+function build_image {
+    echo "Building the image the hard way..."
+
+    # Remove old image if it exits
+    docker rmi rosbuild &>/dev/null
+
+    # Create build container
+    docker run -it \
+      --name=rosbuild \
+      --net=host \
+      --volume="$(pwd)/workspace/tools/docker:/build:ro" \
+      osrf/ros:indigo-desktop-full /build/build.sh
+
+    # Commit to image
+    docker commit \
+      -c "VOLUME /workspace/src" \
+      -c "ENTRYPOINT [\"/ros_entrypoint.sh\", \"/workspace/src/tools/docker/container.sh\"]" \
+      rosbuild rosimage
+
+    # Remove build container
+    docker rm rosbuild
+}
+
+function run_container {
+  echo "Running container"
+  xhost +local:root &>/dev/null
+
+  # In case the container gets left behind somehow
+  docker rm ros &>/dev/null
+
+  docker run -it --rm \
+      --name=ros \
+      --hostname=ros \
+      --env="DISPLAY" \
+      --env="QT_X11_NO_MITSHM=1" \
+      --volume="$(pwd)/workspace:/workspace/src:rw" \
+      --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
+      --net=host \
+      rosimage \
+      "$@"
+      # TODO: Forwarding everything passed to run-docker to the container script
+      # but may want some options before container is launched
+
+  xhost -local:root &>/dev/null
+}
+
+REBUILD="$(docker images -q rosimage)"
+if [ -z "$REBUILD" ]; then
+  build_image
+fi
+
+run_container "$@"

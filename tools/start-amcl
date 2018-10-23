@@ -1,0 +1,5 @@
+#!/bin/bash
+rosrun amcl amcl scan:=base_scan &
+rosservice call /global_localization &
+rosrun exercise2 record_poses.py
+
